@@ -29,15 +29,16 @@ Image convertImageFromRGB2Lab( const Image& rgb )
     int h = rgb.getH();
     printf("asjj\n");
     Image labImg = Image(w,h);
-    for(int i=0;i<10;i++)
+    for(int i=0;i<w;i++)
     {
-        for(int j=0;j<10;j++)
+        for(int j=0;j<h;j++)
         {
             Pixel p = rgb.getPixel(i,j);
             //printf("%d%d\n",i,j);
             p=rgb.rgbToXYZ(p);
             p=rgb.XYZToLab(p);
             int ind = rgb.computePosition( i, j );
+            printf("p: %f %f %f ",p[0],p[1],p[2]);
             labImg.setPixel( ind, p );
             printf("ind %d\n",ind );
         }
@@ -57,7 +58,28 @@ Image convertImageFromRGB2Lab( const Image& rgb )
  */
 Image convertImageFromLAB2RGB( const Image& Lab )
 {
+    printf("vjhv\n");
+    int w = Lab.getW();
+    int h = Lab.getH();
+    printf("asjj\n");
+    Image rgbImg = Image(w,h);
+    for(int i=0;i<w;i++)
+    {
+        for(int j=0;j<h;j++)
+        {
+            Pixel p = Lab.getPixel(i,j);
+            //printf("%d%d\n",i,j);
+            p=Lab.LabToXYZ(p);
+            p=Lab.XYZTorgb(p);
+            printf("p: %f %f %f ",p[0],p[1],p[2]);
+            int ind = Lab.computePosition( i, j );
+            rgbImg.setPixel( ind, p );
+            printf("ind %d\n",ind );
+        }
+        //printf("%d of %d\n",i,w);
+    }
 
+    return rgbImg;
 }
 
 
@@ -257,7 +279,7 @@ void enforceLabelConnectivity( const int* labels, //input labels that need to be
 void SuperPixels( Image& rgb, int k, double M )
 {
     //TODO: Converte a imagem para LAb.
-    convertImageFromRGB2Lab(rgb);
+    Image Lab =convertImageFromRGB2Lab(rgb);
 
     //TODO: Calcula o numero de pixels cada superpixel.
 
@@ -284,7 +306,7 @@ void SuperPixels( Image& rgb, int k, double M )
 
 
     //TODO: Converte a imagem de volta.
-
+    rgb = convertImageFromLAB2RGB(Lab);
     //Desenha os contornos. Deve passar a imagem em rgb e o vetor de labels.
     //drawContoursAroundSegments( rgb, labels );
 }
