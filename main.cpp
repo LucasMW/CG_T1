@@ -24,10 +24,9 @@ using namespace std;
  */
 Image convertImageFromRGB2Lab( const Image& rgb )
 {
-    printf("vjhv\n");
+    printf("Converting to Lab\n");
     int w = rgb.getW();
     int h = rgb.getH();
-    printf("asjj\n");
     Image labImg = Image(w,h);
     for(int i=0;i<w;i++)
     {
@@ -38,11 +37,11 @@ Image convertImageFromRGB2Lab( const Image& rgb )
             p=rgb.rgbToXYZ(p);
             p=rgb.XYZToLab(p);
             int ind = rgb.computePosition( i, j );
-            printf("p: %f %f %f ",p[0],p[1],p[2]);
+            //printf("p: %f %f %f ",p[0],p[1],p[2]);
             labImg.setPixel( ind, p );
-            printf("ind %d\n",ind );
+            //printf("ind %d\n",ind );
         }
-        printf("%d of %d\n",i,w);
+        //printf("%d of %d\n",i,w);
     }
 
     return labImg;
@@ -58,10 +57,9 @@ Image convertImageFromRGB2Lab( const Image& rgb )
  */
 Image convertImageFromLAB2RGB( const Image& Lab )
 {
-    printf("vjhv\n");
+    printf("Re-Converting to RGB\n");
     int w = Lab.getW();
     int h = Lab.getH();
-    printf("asjj\n");
     Image rgbImg = Image(w,h);
     for(int i=0;i<w;i++)
     {
@@ -71,10 +69,13 @@ Image convertImageFromLAB2RGB( const Image& Lab )
             //printf("%d%d\n",i,j);
             p=Lab.LabToXYZ(p);
             p=Lab.XYZTorgb(p);
-            printf("p: %f %f %f ",p[0],p[1],p[2]);
+            //p[2]*=1.1;
+            //p[0]*=1.1;
+            //p[1]*=1.1;
+            //printf("p: %f %f %f ",p[0],p[1],p[2]);
             int ind = Lab.computePosition( i, j );
             rgbImg.setPixel( ind, p );
-            printf("ind %d\n",ind );
+            //printf("ind %d\n",ind );
         }
         //printf("%d of %d\n",i,w);
     }
@@ -93,10 +94,42 @@ Image convertImageFromLAB2RGB( const Image& Lab )
  */
 int initializeClusters( Cluster*& clusters, Image& Lab, int k )
 {
+    int nk = k;
+    clusters = new Cluster[k];
+    int w = Lab.getW();
+    int h = Lab.getH();
+    int size = sqrt((w * h)/k);
 
+    float x=0.0;
+    float y=0.0;
+    for(int i =0 ; i< k; i++)
+    {
+        clusters[i] = Cluster();
+        Pixel p = Lab.getPixel((int)x,(int)y);
+        clusters[i].set(p,x,y);
+        x += size;
+        if(x>=w)
+        {
+            y+=size;
+            x=0.0;
+        }
+    }
+
+
+    return nk;
 }
 
 
+double distanceFromSuperPixels(Cluster sp,Pixel p, int x, int y,double mc, double ms)
+{
+    Pixel c = sp.getPixel();
+    double dc = sqrt((c[0] - p[0])*(c[0] - p[0])+(c[1] - p[1])*(c[1] - p[1])+(c[2] - p[2])*(c[2] - p[2]));
+    double ds = sqrt((sp.getX() - x)*(sp.getX() - x)+(sp.getY() - y)*(sp.getY() - y));
+
+    double dt = sqrt( (dc/mc)*(dc/mc) + (ds/ms)* (ds/ms)) ;
+
+    return dt;
+}
 
 /**
  * TODO: realiza o algoritmo de superpixels.
@@ -108,6 +141,8 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
  */
 void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, int k, double M )
 {
+
+
 
 }
 
@@ -282,18 +317,28 @@ void SuperPixels( Image& rgb, int k, double M )
     Image Lab =convertImageFromRGB2Lab(rgb);
 
     //TODO: Calcula o numero de pixels cada superpixel.
-
+    int w = rgb.getW();
+    int h = rgb.getH();
+    int size = sqrt((w * h)/k);
     //Todo: Inicializa os os clusters.
     Cluster* clusters;
     
-    //k = initializeClusters( clusters, Lab, k );
+    int nk = initializeClusters( clusters, Lab, k );
 
 
     //TODO: aloca e inicializa labels.
 
+    int* labels = (int*)malloc(sizeof(int)*w*h); //index = pixel, value = cluster associated 
+    for(int i=0;i<(w*h);i++)
+    {
+        labels[i] = -1;
+    }
+
+
     //TODO: Executa o algoritmo.
 
-    
+   // performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
+
     //    int* nlabels = new int[size];
     //    enforceLabelConnectivity( labels, w, h, nlabels, k, double(size ) / double( s * s ) );
     //    for (int i = 0; i < size; i++)
