@@ -19,3 +19,4 @@ clean:
 	rm -f *.o
 	rm -f AB_ufv_06752.bmp 
 	rm -f sp
+	rm -f ssp
