@@ -22,6 +22,18 @@ using namespace std;
  * @param rgb - imagem rgb de entrada.
  * @return - imagem em Lab.
  */
+
+
+void debugPixel(Pixel p)
+{
+    printf("(%g,%g,%g)\n", p[0],p[1],p[2]);
+}
+void debugCluster(Cluster c)
+{
+    printf("position (%g,%g)\n",c.getX(),c.getY());
+    printf("pixel ");
+    debugPixel(c.getPixel());
+}
 Image convertImageFromRGB2Lab( const Image& rgb )
 {
     printf("Converting to Lab\n");
@@ -143,11 +155,12 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     int w = Lab.getW();
     int h = Lab.getH();
     int size = sqrt((w * h)/k);
-    int timeout= 1;
+    int timeout= 10;
     double* distances = (double*)malloc(sizeof(double)*w*h);
     for(int r=0; r < timeout; r++)
     {
-    int notUsefullIndexes = 0;
+        double total_center_shift=0;
+        int notUsefullIndexes = 0;
     for(int i = 0;i<k;i++) //for each cluster
     {
         Cluster c = clusters[i];
@@ -170,7 +183,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
                 {
                     Pixel p = Lab.getPixel(x,y);
                     double ms = size;
-                    double mc = 10;
+                    double mc = 1 ;
                     double oldDistance = i>0 ? distanceFromSuperPixels(clusters[labels[i]], p, x, y, mc, ms) : 1;
                     double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
                     if(distance<oldDistance)
@@ -197,12 +210,13 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     for(int i=0;i<k;i++) //for each cluster
     {
         float pxmedia[3] ={0.0,0.0,0.0};
-        float xmedia=0;
-        float ymedia=0;
+        double xmedia=0;
+        double ymedia=0;
         int count=0;
 
         printf("j %d\n", i);
         Cluster c = clusters[i];
+        debugCluster(c);
         int startX = c.getX() - w > 0 ? c.getX()-w : 0;
         int startY = c.getY() - h > 0 ? c.getY()-h : 0;
         int limitX = c.getX() + w < (2*w) ? c.getX() + w : 2*w;
@@ -223,46 +237,52 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
                 }
             }
         }
-        xmedia = xmedia/count;
-        ymedia = ymedia/count;
-        c.setPosition(xmedia,ymedia);
+        xmedia =  (xmedia == 0 || count == 0) ? c.getX() : xmedia/count;
+        ymedia =  (ymedia == 0 || count == 0) ? c.getY() : ymedia/count;
+
+        double thisError = ((double)c.getX() - xmedia) * ((double)c.getX() - xmedia) + ((double)c.getY() -ymedia) *((double)c.getY() - ymedia);
+        thisError = sqrt(thisError);
+        printf("thisError %g\n",thisError );
+        if(isnan(thisError))
+        {
+            printf("%g %g %g %g \n", c.getX(),c.getY(), xmedia,ymedia);
+            continue;
+        }
+        debugCluster(c);
+        if (thisError > 0)
+        {
+            printf("(%g,%g) vs",c.getX(), c.getY() );
+            c.setPosition((int)xmedia,(int)ymedia);
+            printf("(%g,%g)\n",c.getX(), c.getY() );
+        }
+        
         Pixel cpixel = Pixel();
         cpixel[0] = pxmedia[0] / count;
         cpixel[1] = pxmedia[1] / count; 
         cpixel[2] = pxmedia[2] / count; 
         c.setPixel(cpixel);
+        total_center_shift += thisError;
+        clusters[i] = c; //apelação
+        debugCluster(clusters[i]);
 
 
     }
+        printf("Total Error %g\n",total_center_shift);
+        if(total_center_shift<= 10)
+        {
+            printf("LOW ERROR ALREADY\n");
+            break;
+        }
     }
     printf("Post Proccessing\n");
     int overwrittenCount=0;
-    // for(int i;i<k;i++)
-    // {
-    //     Cluster c = clusters[i];
-    //     int startX = c.getX() - w > 0 ? c.getX()-w : 0;
-    //     int startY = c.getY() - h > 0 ? c.getY()-h : 0;
-    //     int limitX = c.getX() + w < (2*w) ? c.getX() + w : 2*w;
-    //     int limitY = c.getY() + h < (2*h) ? c.getY() + h : 2*h;
-    //     for(int x = startX;x<limitX;x++) 
-    //     {
-    //         for(int y = startY;y<limitY;y++)
-    //         {   
-    //             int index = Lab.computePosition(x,y); 
-    //             if(index>0 && index<(w*h) && labels[index] == i)
-    //             {
-    //                 Lab.setPixel(x,y,c.getPixel());
-    //                 overwrittenCount++;
-    //             }
-    //         }
-    //     }
-    // }
+   
     for(int i=0;i<(w*h);i++)
     {
         if(labels[i]==-1)
             continue;
         Lab.setPixel(i,clusters[labels[i]].getPixel());
-        printf("%d ", labels[i]);
+        //printf("%d ", labels[i]);
         overwrittenCount++;
     }
     printf("overwrittenCount %d\n", overwrittenCount);
@@ -477,7 +497,7 @@ void SuperPixels( Image& rgb, int k, double M )
     //TODO: Converte a imagem de volta.
     rgb = convertImageFromLAB2RGB(Lab);
     //Desenha os contornos. Deve passar a imagem em rgb e o vetor de labels.
-    //drawContoursAroundSegments( rgb, labels );
+    drawContoursAroundSegments( rgb, labels );
 }
 
 
@@ -489,14 +509,14 @@ int main( int argc, char** argv )
 {
 
     Image l;
-    if (l.readBMP( "AB_ufv_0675.bmp" ))
+    if (l.readBMP( "estrela.bmp" ))
     {
         printf( "Leitura executada com sucesso\n" );
     }
     
-    SuperPixels( l, 64, 20 );
+    SuperPixels( l, 32, 20 );
     
-    if (l.writeBMP( "AB_ufv_06752.bmp" ))
+    if (l.writeBMP( "estrela32sp.bmp" ))
     {
         printf( "Escrita executada com sucesso\n" );
     }
