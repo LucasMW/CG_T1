@@ -114,18 +114,17 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
             x=0.0;
         }
     }
-
-
     return nk;
 }
 
 
-double distanceFromSuperPixels(Cluster sp,Pixel p, int x, int y,double mc, double ms)
+double distanceFromSuperPixels(Cluster sp, Pixel p, int x, int y, double mc, double ms)
 {
     Pixel c = sp.getPixel();
-    double dc = sqrt((c[0] - p[0])*(c[0] - p[0])+(c[1] - p[1])*(c[1] - p[1])+(c[2] - p[2])*(c[2] - p[2]));
+    double dc = sqrt((c[0] - p[0])*(c[0] - p[0])+(c[1] - p[1])*(c[1] - p[1])+(c[2] - p[2])*(c[2] - p[2])); 
     double ds = sqrt((sp.getX() - x)*(sp.getX() - x)+(sp.getY() - y)*(sp.getY() - y));
-
+    //mc = maximum dc
+    //ms = maximum ds
     double dt = sqrt( (dc/mc)*(dc/mc) + (ds/ms)* (ds/ms)) ;
 
     return dt;
@@ -141,9 +140,133 @@ double distanceFromSuperPixels(Cluster sp,Pixel p, int x, int y,double mc, doubl
  */
 void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, int k, double M )
 {
+    int w = Lab.getW();
+    int h = Lab.getH();
+    int size = sqrt((w * h)/k);
+    int timeout= 1;
+    double* distances = (double*)malloc(sizeof(double)*w*h);
+    for(int r=0; r < timeout; r++)
+    {
+    int notUsefullIndexes = 0;
+    for(int i = 0;i<k;i++) //for each cluster
+    {
+        Cluster c = clusters[i];
+        int startX = c.getX() - w > 0 ? c.getX()-w : 0;
+        int startY = c.getY() - h > 0 ? c.getY()-h : 0;
+        int limitX = c.getX() + w < (2*w) ? c.getX() + w : 2*w;
+        int limitY = c.getY() + h < (2*h) ? c.getY() + h : 2*h;
+
+        printf("i %d\n", i);
+
+        //crie uma janela centrada em c.getX() e c.getY()
+        
+        for(int x = startX;x<limitX;x++) 
+        {
+            //printf("x %d\n", x);
+            for(int y = startY;y<limitY;y++)
+            {
+                //printf("y %d\n",y);
+                if(i != labels[i]) //not atributed to cluster
+                {
+                    Pixel p = Lab.getPixel(x,y);
+                    double ms = size;
+                    double mc = 10;
+                    double oldDistance = i>0 ? distanceFromSuperPixels(clusters[labels[i]], p, x, y, mc, ms) : 1;
+                    double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
+                    if(distance<oldDistance)
+                    {
+                        int index = Lab.computePosition(x,y);
+                        
+                        if(index > 0 && index < (w*h))
+                        {
+                            labels[index] = i; //change
+                        }
+                        else
+                        {
+                            //notUsefullIndexes++;
+                        }
+
+                        
+                    }
+                }
+            }
+
+        }
+    }
+    //printf(" notUsefullIndexes %d\n",notUsefullIndexes );
+    for(int i=0;i<k;i++) //for each cluster
+    {
+        float pxmedia[3] ={0.0,0.0,0.0};
+        float xmedia=0;
+        float ymedia=0;
+        int count=0;
+
+        printf("j %d\n", i);
+        Cluster c = clusters[i];
+        int startX = c.getX() - w > 0 ? c.getX()-w : 0;
+        int startY = c.getY() - h > 0 ? c.getY()-h : 0;
+        int limitX = c.getX() + w < (2*w) ? c.getX() + w : 2*w;
+        int limitY = c.getY() + h < (2*h) ? c.getY() + h : 2*h;
+        for(int x = startX;x<limitX;x++) 
+        {
+            for(int y = startY;y<limitY;y++)
+            {   
+                int index = Lab.computePosition(x,y);
+                if(index>0 && index<(w*h) && labels[index] == i)
+                {
+                    xmedia += x;
+                    ymedia += y;
+                    pxmedia[0]+=Lab.getPixel(x,y)[0];
+                    pxmedia[1]+=Lab.getPixel(x,y)[1]; 
+                    pxmedia[2]+=Lab.getPixel(x,y)[2];  
+                    count++;
+                }
+            }
+        }
+        xmedia = xmedia/count;
+        ymedia = ymedia/count;
+        c.setPosition(xmedia,ymedia);
+        Pixel cpixel = Pixel();
+        cpixel[0] = pxmedia[0] / count;
+        cpixel[1] = pxmedia[1] / count; 
+        cpixel[2] = pxmedia[2] / count; 
+        c.setPixel(cpixel);
 
 
-
+    }
+    }
+    printf("Post Proccessing\n");
+    int overwrittenCount=0;
+    // for(int i;i<k;i++)
+    // {
+    //     Cluster c = clusters[i];
+    //     int startX = c.getX() - w > 0 ? c.getX()-w : 0;
+    //     int startY = c.getY() - h > 0 ? c.getY()-h : 0;
+    //     int limitX = c.getX() + w < (2*w) ? c.getX() + w : 2*w;
+    //     int limitY = c.getY() + h < (2*h) ? c.getY() + h : 2*h;
+    //     for(int x = startX;x<limitX;x++) 
+    //     {
+    //         for(int y = startY;y<limitY;y++)
+    //         {   
+    //             int index = Lab.computePosition(x,y); 
+    //             if(index>0 && index<(w*h) && labels[index] == i)
+    //             {
+    //                 Lab.setPixel(x,y,c.getPixel());
+    //                 overwrittenCount++;
+    //             }
+    //         }
+    //     }
+    // }
+    for(int i=0;i<(w*h);i++)
+    {
+        if(labels[i]==-1)
+            continue;
+        Lab.setPixel(i,clusters[labels[i]].getPixel());
+        printf("%d ", labels[i]);
+        overwrittenCount++;
+    }
+    printf("overwrittenCount %d\n", overwrittenCount);
+    printf("%d/%d \n",overwrittenCount,(w*h) );
 }
 
 
@@ -334,17 +457,18 @@ void SuperPixels( Image& rgb, int k, double M )
         labels[i] = -1;
     }
 
+    printf("Performing algorithm\n");
 
     //TODO: Executa o algoritmo.
 
-   // performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
+    performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
 
     //    int* nlabels = new int[size];
-    //    enforceLabelConnectivity( labels, w, h, nlabels, k, double(size ) / double( s * s ) );
+    //    enforceLabelConnectivity( labels, w, h, nlabels, k, double(size ) / double( size * size ) );
     //    for (int i = 0; i < size; i++)
     //        labels[i] = nlabels[i];
 
-    //if (nlabels)
+    // if (nlabels)
     //    delete [] nlabels;
 
     //TODO: define as novas cores dos pixels.
@@ -370,7 +494,7 @@ int main( int argc, char** argv )
         printf( "Leitura executada com sucesso\n" );
     }
     
-    SuperPixels( l, 512, 20 );
+    SuperPixels( l, 64, 20 );
     
     if (l.writeBMP( "AB_ufv_06752.bmp" ))
     {
