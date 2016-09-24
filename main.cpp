@@ -84,12 +84,10 @@ Image convertImageFromLAB2RGB( const Image& Lab )
             //p[2]*=1.1;
             //p[0]*=1.1;
             //p[1]*=1.1;
-            //printf("p: %f %f %f ",p[0],p[1],p[2]);
             int ind = Lab.computePosition( i, j );
             rgbImg.setPixel( ind, p );
             //printf("ind %d\n",ind );
         }
-        //printf("%d of %d\n",i,w);
     }
 
     return rgbImg;
@@ -106,25 +104,82 @@ Image convertImageFromLAB2RGB( const Image& Lab )
  */
 int initializeClusters( Cluster*& clusters, Image& Lab, int k )
 {
-    int nk = k;
-    clusters = new Cluster[k];
+     int nk = k;
+    // clusters = new Cluster[k];
     int w = Lab.getW();
     int h = Lab.getH();
     int size = sqrt((w * h)/k);
 
-    float x=0.0;
-    float y=0.0;
-    for(int i =0 ; i< k; i++)
+    // int x=0;
+    // int y=0;
+
+    // int q=0;
+    // while(x<=w && y<=h)
+    // {
+    //     x += size;
+    //     if(x>=w)
+    //     {
+    //         y+=size;
+    //         x=0.0;
+    //     } 
+    //     q++;
+    // }
+    // if(q!=k)
+    // {
+    //     clusters = new Cluster[q];
+    //     printf("q %d vs k %d\n", q,k);
+    // }
+    // nk=q;
+
+    // x=0;
+    // y=0;
+    // int i=0;
+    // while(x<=w && y<=h)
+    // //for(int i =0 ; i< k; i++) // for each cluster
+    // {
+    //     clusters[i] = Cluster();
+
+
+    //     Pixel p = Lab.getPixel((int)x+size/2,(int)y+size/2);
+    //     clusters[i].set(p,x+size/2,y+size/2);
+    //     x += size;
+        
+    //     if(x>=w)
+    //     {
+    //         y+=size;
+    //         x=0.0;
+    //     }
+    //     i++;
+    // }
+    int errox = 0;
+    int xs = w/size;
+    if(w-size*xs < 0)
     {
-        clusters[i] = Cluster();
-        Pixel p = Lab.getPixel((int)x,(int)y);
-        clusters[i].set(p,x,y);
-        x += size;
-        if(x>=w)
-        {
-            y+=size;
-            x=0.0;
-        }
+         xs--;
+         errox = w-size * xs;
+    }
+    int erroy = 0;
+    int ys = h/size;
+    if(h-size*ys < 0)
+    {
+        ys--;
+        erroy = h-size * ys;
+    }
+
+    clusters = new Cluster[xs*ys];
+    nk = xs *ys;
+    int j =0;
+     for(int x=0;x<xs;x++)
+    {
+         for(int y=0;y<ys;y++)
+         {
+             int cx = x * size +size/2 + x * errox/xs;
+             int cy = y * size + size/2 + y * erroy/ys;
+             clusters[j].setPosition(cx,cy);
+             clusters[j].setPixel(Lab.getPixel(cx,cy));
+             j++;
+         }
+
     }
     return nk;
 }
@@ -142,6 +197,17 @@ double distanceFromSuperPixels(Cluster sp, Pixel p, int x, int y, double mc, dou
     return dt;
 }
 
+//from paper
+double simpleDistance(Cluster sp, Pixel p, int x, int y,double S,double m)
+{
+    Pixel c = sp.getPixel();
+    //double S = sqrt((w * h)/k);
+    double dc = sqrt((c[0] - p[0])*(c[0] - p[0])+(c[1] - p[1])*(c[1] - p[1])+(c[2] - p[2])*(c[2] - p[2])); 
+    double ds = sqrt((sp.getX() - x)*(sp.getX() - x)+(sp.getY() - y)*(sp.getY() - y));
+    double dt = sqrt((dc*dc) + (ds/S) * (ds/S) * (m * m));
+    return dt;
+}
+
 /**
  * TODO: realiza o algoritmo de superpixels.
  * @param Lab - Imagem em lab.
@@ -156,7 +222,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     int h = Lab.getH();
     int size = sqrt((w * h)/k);
     const int timeout= 10;
-    const double errorAllowed = 1000;
+    const double errorAllowed = 0.01;
     double* distances = (double*)malloc(sizeof(double)*w*h);
     for(int i=0;i<(w*h);i++)
         distances[i]=2.0e64; // very high value
@@ -172,7 +238,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
         int limitX = c.getX() + size < (w) ? c.getX() + size : w;
         int limitY = c.getY() + size < (h) ? c.getY() + size : h;
 
-        printf("i %d\n", i);
+        //printf("i %d\n", i);
 
         //crie uma janela centrada em c.getX() e c.getY()
         
@@ -190,7 +256,9 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
                     double mc = 1 ;
                     //double oldDistance = i>0 ? distanceFromSuperPixels(clusters[labels[i]], p, x, y, mc, ms) : 1;
                     double oldDistance = distances[index];
-                    double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
+                    //double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
+                    double distance = simpleDistance(c,p,x,y,size,M);
+
                     if(distance<oldDistance)
                     {
                         int index = Lab.computePosition(x,y);
@@ -220,7 +288,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
         double ymedia=0;
         int count=0;
 
-        printf("j %d\n", i);
+        //printf("j %d\n", i);
         Cluster c = clusters[i];
         int startX = c.getX() - size > 0 ? c.getX()-size : 0;
         int startY = c.getY() - size > 0 ? c.getY()-size : 0;
@@ -247,7 +315,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
 
         double thisError = ((double)c.getX() - xmedia) * ((double)c.getX() - xmedia) + ((double)c.getY() -ymedia) *((double)c.getY() - ymedia);
         thisError = sqrt(thisError);
-        printf("thisError %g\n",thisError );
+        //printf("thisError %g\n",thisError );
         if(isnan(thisError))
         {
             printf("%g %g %g %g \n", c.getX(),c.getY(), xmedia,ymedia);
@@ -255,9 +323,9 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
         }
         if (thisError > 0)
         {
-            printf("(%g,%g) vs",c.getX(), c.getY() );
+            //printf("(%g,%g) vs",c.getX(), c.getY() );
             c.setPosition((int)xmedia,(int)ymedia);
-            printf("(%g,%g)\n",c.getX(), c.getY() );
+            //printf("(%g,%g)\n",c.getX(), c.getY() );
             Pixel cpixel = Pixel();
             cpixel[0] = pxmedia[0] / count;
             cpixel[1] = pxmedia[1] / count; 
@@ -282,11 +350,13 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     int overwrittenCount=0;
    
     int lastCluster = 0;
+    int orphanCount =0;
     for(int i=0;i<(w*h);i++)
     {
         if(labels[i]==-1)
         {
-            printf("%d ", i );
+            //printf("%d ", i );
+            orphanCount++;
             labels[i] = labels[i] = lastCluster; //force orphans to have a cluster
             continue;
         }
@@ -295,8 +365,13 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
         //printf("%d ", labels[i]);
         overwrittenCount++;
     }
+    if(orphanCount > 0)
+    {
+        printf("error %d labels in -1\n",orphanCount );
+        //exit(01);
+    }
     printf("overwrittenCount %d\n", overwrittenCount);
-    printf("%d/%d \n",overwrittenCount,(w*h) );
+    printf("%d/%d \n",overwrittenCount, (w*h));
 }
 
 
@@ -382,17 +457,17 @@ void enforceLabelConnectivity( const int* labels, //input labels that need to be
 
     const int sz = width * height;
     const int SUPSZ = sz / K;
-    printf("before first isolated for\n");
+    
     for (int i = 0; i < sz; i++) nlabels[i] = -1;
     int label( 0 );
     int* xvec = new int[sz];
     int* yvec = new int[sz];
     int oindex( 0 );
     int adjlabel( 0 ); //adjacent label
-    printf("before j for\n");
+    
     for (int j = 0; j < height; j++)
     {
-        printf("j %d \n", j);
+        
         for (int k = 0; k < width; k++)
         {
             if (0 > nlabels[oindex])
@@ -495,7 +570,7 @@ void SuperPixels( Image& rgb, int k, double M )
 
     //TODO: Executa o algoritmo.
 
-    performSuperPixelsAlgorithm(Lab, clusters, labels, nk, M);
+    performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
 
        int* nlabels = new int[w*h];
         int numlabels;
@@ -536,9 +611,9 @@ int main( int argc, char** argv )
         printf( "Leitura executada com sucesso\n" );
     }
     
-    SuperPixels( l, 256, 20 );
+    SuperPixels( l, 50, 20 );
     
-    if (l.writeBMP( "estrela16sp.bmp" ))
+    if (l.writeBMP( "estrela2.bmp" ))
     {
         printf( "Escrita executada com sucesso\n" );
     }
