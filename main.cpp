@@ -358,7 +358,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
             continue;
         }
         lastCluster = i;
-        Lab.setPixel(i,clusters[labels[i]].getPixel());
+        //Lab.setPixel(i,clusters[labels[i]].getPixel());
         //printf("%d ", labels[i]);
         overwrittenCount++;
     }
@@ -571,22 +571,22 @@ void SuperPixels( Image& rgb, int k, double M )
 
     performSuperPixelsAlgorithm(Lab, clusters, labels, nk, M);
 
-       int* nlabels = new int[w*h];
-    
+    int* nlabels = new int[w*h];
+    enforceLabelConnectivity( labels, w, h, nlabels, nk, k );
 
-       for (int i = 0; i < w*h; i++)
-           labels[i] = nlabels[i];
+    for (int i = 0; i < w*h; i++)
+        labels[i] = nlabels[i];
 
     if (nlabels)
        delete [] nlabels;
 
     //TODO: define as novas cores dos pixels.
 
-
+    
     //TODO: Converte a imagem de volta.
     rgb = convertImageFromLAB2RGB(Lab);
     //Desenha os contornos. Deve passar a imagem em rgb e o vetor de labels.
-    //drawContoursAroundSegments( rgb, labels );
+    drawContoursAroundSegments( rgb, labels );
     free(clusters);
 }
 
@@ -605,7 +605,7 @@ int main( int argc, char** argv )
     }
     
     //M should be in [1,40]
-    SuperPixels( l, 2600, 40 );
+    SuperPixels( l, 2048, 40 );
     
     if (l.writeBMP( "AB_ufv_06752.bmp" ))
     {
