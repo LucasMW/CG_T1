@@ -127,17 +127,19 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
         erroy = h-size * ys;
     }
 
-    clusters = (Cluster*)malloc(sizeof(Cluster)*w*h);
+    clusters = (Cluster*)malloc(sizeof(Cluster)*xs*ys);
     int nk = xs *ys;
     int j =0;
      for(int x=0;x<xs;x++)
     {
          for(int y=0;y<ys;y++)
          {
-             int cx = x * size +size/2 + (x * errox)/xs;
-             int cy = y * size + size/2 + (y * erroy)/ys;
-             clusters[j].setPosition(cx,cy);
-             clusters[j].setPixel(Lab.getPixel(cx,cy));
+             double cx = x * size +size/2 + (x * errox)/xs;
+             double cy = y * size + size/2 + (y * erroy)/ys;
+             printf("%g %g\n", cx,cy);
+             clusters[j].setPosition((int)cx,(int)cy);
+             clusters[j].setPixel(Lab.getPixel((int)cx,(int)cy));
+             debugCluster(clusters[j]);
              j++;
          }
 
@@ -145,6 +147,8 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     if(j != nk || k != nk)
         printf("j %d k %d nk %d\n",j,k,nk);
     assert(j==nk);
+    for(int i=0;i<(xs*ys);i++)
+        debugCluster(clusters[i]);
     return nk;
 }
 
@@ -206,7 +210,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
             //printf("i %d\n", i);
 
             //crie uma janela centrada em c.getX() e c.getY()
-            printf("d\n");
+            //printf("d\n");
             for(int x = startX;x<limitX;x++) 
             {
                 //printf("x %d ", x);
@@ -565,7 +569,7 @@ void SuperPixels( Image& rgb, int k, double M )
 
     //TODO: Executa o algoritmo.
 
-    performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
+    performSuperPixelsAlgorithm(Lab, clusters, labels, nk, M);
 
        int* nlabels = new int[w*h];
     
