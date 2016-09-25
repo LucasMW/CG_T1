@@ -108,11 +108,13 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     // clusters = new Cluster[k];
     int w = Lab.getW();
     int h = Lab.getH();
-    int size = sqrt((w * h)/k);
+    int size = sqrt((w * (double)h)/((double)k));
+    //jeff algoritm
     int errox = 0;
     int xs = w/size;
     if(w-size*xs < 0)
     {
+         printf("xs\n");
          xs--;
          errox = w-size * xs;
     }
@@ -120,19 +122,20 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     int ys = h/size;
     if(h-size*ys < 0)
     {
+        printf("ys\n");
         ys--;
         erroy = h-size * ys;
     }
 
-    clusters = new Cluster[xs*ys];
+    clusters = (Cluster*)malloc(sizeof(Cluster)*w*h);
     int nk = xs *ys;
     int j =0;
      for(int x=0;x<xs;x++)
     {
          for(int y=0;y<ys;y++)
          {
-             int cx = x * size +size/2 + x * errox/xs;
-             int cy = y * size + size/2 + y * erroy/ys;
+             int cx = x * size +size/2 + (x * errox)/xs;
+             int cy = y * size + size/2 + (y * erroy)/ys;
              clusters[j].setPosition(cx,cy);
              clusters[j].setPixel(Lab.getPixel(cx,cy));
              j++;
@@ -141,6 +144,7 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     }
     if(j != nk || k != nk)
         printf("j %d k %d nk %d\n",j,k,nk);
+    assert(j==nk);
     return nk;
 }
 
@@ -161,7 +165,6 @@ double distanceFromSuperPixels(Cluster sp, Pixel p, int x, int y, double mc, dou
 double simpleDistance(Cluster sp, Pixel p, int x, int y,double S,double m)
 {
     Pixel c = sp.getPixel();
-    //double S = sqrt((w * h)/k);
     double dc = sqrt((c[0] - p[0])*(c[0] - p[0])+(c[1] - p[1])*(c[1] - p[1])+(c[2] - p[2])*(c[2] - p[2])); 
     double ds = sqrt((sp.getX() - x)*(sp.getX() - x)+(sp.getY() - y)*(sp.getY() - y));
     double dt = sqrt((dc*dc) + (ds/S) * (ds/S) * (m * m));
@@ -181,155 +184,187 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     int w = Lab.getW();
     int h = Lab.getH();
     int size = sqrt((w * h)/k);
+    assert(size > 0);
     const int timeout= 10;
     const double errorAllowed = 0.01;
-    double* distances = (double*)malloc(sizeof(double)*w*h);
+    double* distances = (double*) malloc(sizeof(double)*w*h);
     for(int i=0;i<(w*h);i++)
         distances[i]=2.0e64; // very high value
+    
     for(int r=0; r < timeout; r++)
     {
         double total_center_shift=0;
         int notUsefullIndexes = 0;
-    for(int i = 0;i<k;i++) //for each cluster
-    {
-        Cluster c = clusters[i];
-        int startX = c.getX() - 2*size > 0 ? c.getX() - 2*size : 0;
-        int startY = c.getY() - 2*size > 0 ? c.getY() - 2*size : 0;
-        int limitX = c.getX() + 2*size < (w) ? c.getX() + 2*size : w;
-        int limitY = c.getY() + 2*size < (h) ? c.getY() + 2*size : h;
-        printf("i %d\n", i);
-
-        //crie uma janela centrada em c.getX() e c.getY()
-        
-        for(int x = startX;x<limitX;x++) 
+        printf("c\n");
+        for(int i = 0;i<k;i++) //for each cluster
         {
-            //printf("x %d\n", x);
-            for(int y = startY;y<limitY;y++)
+            Cluster c = clusters[i];
+            int startX = c.getX() - 2*size > 0 ? c.getX() - 2*size : 0;
+            int startY = c.getY() - 2*size > 0 ? c.getY() - 2*size : 0;
+            int limitX = c.getX() + 2*size < (w) ? c.getX() + 2*size : w;
+            int limitY = c.getY() + 2*size < (h) ? c.getY() + 2*size : h;
+            //printf("i %d\n", i);
+
+            //crie uma janela centrada em c.getX() e c.getY()
+            printf("d\n");
+            for(int x = startX;x<limitX;x++) 
             {
-                //printf("y %d\n",y);
-                int index = Lab.computePosition(x,y);
-                if(i != labels[i]) //not atributed to cluster
+                //printf("x %d ", x);
+                for(int y = startY;y<limitY;y++)
                 {
-                    Pixel p = Lab.getPixel(x,y);
-                    double ms = size;
-                    double mc = 1 ;
-                    //double oldDistance = i>0 ? distanceFromSuperPixels(clusters[labels[i]], p, x, y, mc, ms) : 1;
-                    double oldDistance = distances[index];
-                    //double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
-                    double distance = simpleDistance(c,p,x,y,size,M);
-
-                    if(distance<oldDistance)
+                    //printf("dy %d\n",y);
+                    int index = Lab.computePosition(x,y);
+                    assert(index >=0 && index < (w*h));
+                    int flaglabel = 0;
+                    if(labels[index] == -1)
                     {
-                        int index = Lab.computePosition(x,y);
-                        
-                        if(index >= 0 && index < (w*h))
-                        {
-                            labels[index] = i; //change
-                            distances[index] = distance;
-                        }
-                        else
-                        {
-                            notUsefullIndexes++;
-                        }
+                        flaglabel=1;
+                        //printf("index %d\n",index);
+                    }
+                    if(i != labels[index]) //pixel not atributed to cluster
+                    {
+                        //printf("d1\n");
+                        Pixel p = Lab.getPixel(x,y);
+                        double ms = size;
+                        double mc = 1 ;                        
+                        double oldDistance = distances[index];
+                        //double distance = distanceFromSuperPixels(c, p, x, y, mc, ms);
+                        double distance = simpleDistance(c,p,x,y,size,M);
+                        if(labels[index]==-1)
+                            assert(distance < oldDistance);
 
-                        
+                        if(distance<oldDistance)
+                        {
+                            //printf("d2\n");
+                            if(index >= 0 && index < (w*h))
+                            {
+                                labels[index] = i; //change
+                                // if(flaglabel)
+                                //     printf("labels[%d] is now %d\n",index,labels[index] );
+                                distances[index] = distance;
+                            }
+                            else
+                            {
+                                notUsefullIndexes++;
+                            }
+
+                            
+                        }
+                    }
+                        assert(labels[index]!= -1);
+                }
+
+            }
+            //printf("d3\n");
+        }
+        assert(notUsefullIndexes == 0);
+        printf(" notUsefullIndexes %d\n",notUsefullIndexes );
+        printf("e\n");
+        for(int i=0;i<(w*h);i++) 
+        {   
+            if(labels[i]==-1)
+                printf("i %d\n",i);
+            assert(labels[i]!=-1);
+        }
+        for(int i=0;i<k;i++) //for each cluster
+        {
+            printf("f\n");
+            float pxmedia[3] ={0.0,0.0,0.0};
+            double xmedia=0;
+            double ymedia=0;
+            int count=0;
+
+            //printf("j %d\n", i);
+            Cluster c = clusters[i];
+            int startX = c.getX() - 2*size > 0 ? c.getX()-2*size : 0;
+            int startY = c.getY() - 2*size > 0 ? c.getY()-2*size : 0;
+            int limitX = c.getX() + 2*size < (w) ? c.getX() + 2*size : w;
+            int limitY = c.getY() + 2*size < (h) ? c.getY() + 2*size : h;
+            printf("g\n");
+            for(int x = startX;x<limitX;x++) 
+            {
+                for(int y = startY;y<limitY;y++)
+                {   
+                    int index = Lab.computePosition(x,y);
+                    assert(index>=0 && index < (w*h));
+                    if(index>=0 && index<(w*h) && labels[index] == i)
+                    {
+                        xmedia += x;
+                        ymedia += y;
+                        pxmedia[0]+=Lab.getPixel(x,y)[0];
+                        pxmedia[1]+=Lab.getPixel(x,y)[1]; 
+                        pxmedia[2]+=Lab.getPixel(x,y)[2];  
+                        count++;
                     }
                 }
             }
+            printf("h\n");
+            xmedia =  (xmedia == 0 || count == 0) ? c.getX() : xmedia/count;
+            ymedia =  (ymedia == 0 || count == 0) ? c.getY() : ymedia/count;
 
-        }
-    }
-    assert(notUsefullIndexes == 0);
-    printf(" notUsefullIndexes %d\n",notUsefullIndexes );
-    for(int i=0;i<k;i++) //for each cluster
-    {
-        float pxmedia[3] ={0.0,0.0,0.0};
-        double xmedia=0;
-        double ymedia=0;
-        int count=0;
-
-        //printf("j %d\n", i);
-        Cluster c = clusters[i];
-        int startX = c.getX() - 2*size > 0 ? c.getX()-2*size : 0;
-        int startY = c.getY() - 2*size > 0 ? c.getY()-2*size : 0;
-        int limitX = c.getX() + 2*size < (w) ? c.getX() + 2*size : w;
-        int limitY = c.getY() + 2*size < (h) ? c.getY() + 2*size : h;
-        for(int x = startX;x<limitX;x++) 
-        {
-            for(int y = startY;y<limitY;y++)
-            {   
-                int index = Lab.computePosition(x,y);
-                if(index>0 && index<(w*h) && labels[index] == i)
-                {
-                    xmedia += x;
-                    ymedia += y;
-                    pxmedia[0]+=Lab.getPixel(x,y)[0];
-                    pxmedia[1]+=Lab.getPixel(x,y)[1]; 
-                    pxmedia[2]+=Lab.getPixel(x,y)[2];  
-                    count++;
-                }
+            double thisError = ((double)c.getX() - xmedia) * ((double)c.getX() - xmedia) + ((double)c.getY() -ymedia) *((double)c.getY() - ymedia);
+            thisError = sqrt(thisError);
+            //printf("thisError %g\n",thisError );
+            printf("k\n");
+            if(isnan(thisError))
+            {
+                printf("%g %g %g %g \n", c.getX(),c.getY(), xmedia,ymedia);
+                continue;
             }
-        }
-        xmedia =  (xmedia == 0 || count == 0) ? c.getX() : xmedia/count;
-        ymedia =  (ymedia == 0 || count == 0) ? c.getY() : ymedia/count;
-
-        double thisError = ((double)c.getX() - xmedia) * ((double)c.getX() - xmedia) + ((double)c.getY() -ymedia) *((double)c.getY() - ymedia);
-        thisError = sqrt(thisError);
-        //printf("thisError %g\n",thisError );
-        if(isnan(thisError))
-        {
-            printf("%g %g %g %g \n", c.getX(),c.getY(), xmedia,ymedia);
-            continue;
-        }
-        if (thisError > 0)
-        {
-            //printf("(%g,%g) vs",c.getX(), c.getY() );
-            c.setPosition((int)xmedia,(int)ymedia);
-            //printf("(%g,%g)\n",c.getX(), c.getY() );
-            Pixel cpixel = Pixel();
-            cpixel[0] = pxmedia[0] / count;
-            cpixel[1] = pxmedia[1] / count; 
-            cpixel[2] = pxmedia[2] / count; 
-            c.setPixel(cpixel);
-            total_center_shift += thisError;
-            clusters[i] = c; //important
-        }
-        
-        
+            printf("l\n");
+            if (thisError > 0)
+            {
+                //printf("(%g,%g) vs",c.getX(), c.getY() );
+                c.setPosition((int)xmedia,(int)ymedia);
+                //printf("(%g,%g)\n",c.getX(), c.getY() );
+                Pixel cpixel = Pixel();
+                cpixel[0] = pxmedia[0] / count;
+                cpixel[1] = pxmedia[1] / count; 
+                cpixel[2] = pxmedia[2] / count; 
+                c.setPixel(cpixel);
+                total_center_shift += thisError;
+                clusters[i] = c; //important
+            }
+            printf("m\n");
+            
 
 
-    }
+        }
         printf("Total Error %g\n",total_center_shift);
         if(total_center_shift<= errorAllowed)
         {
             printf("LOW ERROR ALREADY\n");
             break;
         }
+        printf("n\n");
     }
     printf("Post Proccessing\n");
     int overwrittenCount=0;
    
     int lastCluster = 0;
     int orphanCount =0;
+    printf("o\n");
     for(int i=0;i<(w*h);i++)
     {
         if(labels[i]==-1)
         {
             //printf("%d ", i );
             orphanCount++;
-            labels[i] = labels[i] = lastCluster; //force orphans to have a cluster
+            labels[i] = lastCluster; //force orphans to have a cluster
             continue;
         }
         lastCluster = i;
-        //Lab.setPixel(i,clusters[labels[i]].getPixel());
+        Lab.setPixel(i,clusters[labels[i]].getPixel());
         //printf("%d ", labels[i]);
         overwrittenCount++;
     }
+    printf("p\n");
     if(orphanCount > 0)
     {
         printf("error %d labels in -1\n",orphanCount );
         //exit(01);
     }
+    printf("q\n");
     printf("overwrittenCount %d\n", overwrittenCount);
     printf("%d/%d \n",overwrittenCount, (w*h));
     assert(orphanCount == 0);
@@ -412,8 +447,6 @@ void enforceLabelConnectivity( const int* labels, //input labels that need to be
                                int& numlabels, //the number of labels changes in the end if segments are removed
                                const int& K ) //the number of superpixels desired by the user
 {
-    printf("enforcing\n");
-    printf("%x %d %d %x %d %d\n",labels,width,height,nlabels,numlabels, K );
     const int dx4[4] = { -1, 0, 1, 0 };
     const int dy4[4] = { 0, -1, 0, 1 };
 
@@ -515,7 +548,7 @@ void SuperPixels( Image& rgb, int k, double M )
     int h = rgb.getH();
     int size = sqrt((w * h)/k);
     //Todo: Inicializa os os clusters.
-    Cluster* clusters;
+    Cluster* clusters = nullptr;
     
     int nk = initializeClusters( clusters, Lab, k );
 
@@ -535,14 +568,7 @@ void SuperPixels( Image& rgb, int k, double M )
     performSuperPixelsAlgorithm(Lab, clusters, labels, k, M);
 
        int* nlabels = new int[w*h];
-        int numlabels;
-       // void enforceLabelConnectivity( const int* labels, //input labels that need to be corrected to remove stray labels
-       //                         const int width,
-       //                         const int height,
-       //                         int*& nlabels, //new labels
-       //                         int& numlabels, //the number of labels changes in the end if segments are removed
-       //                         const int& K ) //the number of superpixels desired by the user
-       enforceLabelConnectivity( labels, w, h, nlabels, nk, k );
+    
 
        for (int i = 0; i < w*h; i++)
            labels[i] = nlabels[i];
@@ -556,7 +582,8 @@ void SuperPixels( Image& rgb, int k, double M )
     //TODO: Converte a imagem de volta.
     rgb = convertImageFromLAB2RGB(Lab);
     //Desenha os contornos. Deve passar a imagem em rgb e o vetor de labels.
-    drawContoursAroundSegments( rgb, labels );
+    //drawContoursAroundSegments( rgb, labels );
+    free(clusters);
 }
 
 
@@ -567,13 +594,14 @@ void SuperPixels( Image& rgb, int k, double M )
 int main( int argc, char** argv )
 {
 
-    Image l;
+    Image l = Image();
     if (l.readBMP( "AB_ufv_0675.bmp" ))
     {
         printf( "Leitura executada com sucesso\n" );
     }
     
-    SuperPixels( l, 20, 20 );
+    //M should be in [1,40]
+    SuperPixels( l, 2600, 40 );
     
     if (l.writeBMP( "AB_ufv_06752.bmp" ))
     {
