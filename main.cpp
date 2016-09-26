@@ -114,7 +114,7 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     int xs = w/size;
     if(w-size*xs < 0)
     {
-         printf("xs\n");
+         //printf("xs\n");
          xs--;
          errox = w-size * xs;
     }
@@ -122,7 +122,7 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
     int ys = h/size;
     if(h-size*ys < 0)
     {
-        printf("ys\n");
+        //printf("ys\n");
         ys--;
         erroy = h-size * ys;
     }
@@ -136,19 +136,19 @@ int initializeClusters( Cluster*& clusters, Image& Lab, int k )
          {
              double cx = x * size +size/2 + (x * errox)/xs;
              double cy = y * size + size/2 + (y * erroy)/ys;
-             printf("%g %g\n", cx,cy);
+             //printf("%g %g\n", cx,cy);
              clusters[j].setPosition((int)cx,(int)cy);
              clusters[j].setPixel(Lab.getPixel((int)cx,(int)cy));
-             debugCluster(clusters[j]);
+             //debugCluster(clusters[j]);
              j++;
          }
 
     }
     if(j != nk || k != nk)
-        printf("j %d k %d nk %d\n",j,k,nk);
+        //printf("j %d k %d nk %d\n",j,k,nk);
     assert(j==nk);
-    for(int i=0;i<(xs*ys);i++)
-        debugCluster(clusters[i]);
+    // for(int i=0;i<(xs*ys);i++)
+    //     debugCluster(clusters[i]);
     return nk;
 }
 
@@ -199,7 +199,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
     {
         double total_center_shift=0;
         int notUsefullIndexes = 0;
-        printf("c\n");
+        //printf("c\n");
         for(int i = 0;i<k;i++) //for each cluster
         {
             Cluster c = clusters[i];
@@ -262,17 +262,17 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
             //printf("d3\n");
         }
         assert(notUsefullIndexes == 0);
-        printf(" notUsefullIndexes %d\n",notUsefullIndexes );
-        printf("e\n");
+        //printf(" notUsefullIndexes %d\n",notUsefullIndexes );
+        //printf("e\n");
         for(int i=0;i<(w*h);i++) 
         {   
             if(labels[i]==-1)
-                printf("i %d\n",i);
+                //printf("i %d\n",i);
             assert(labels[i]!=-1);
         }
         for(int i=0;i<k;i++) //for each cluster
         {
-            printf("f\n");
+            //printf("f\n");
             float pxmedia[3] ={0.0,0.0,0.0};
             double xmedia=0;
             double ymedia=0;
@@ -284,7 +284,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
             int startY = c.getY() - 2*size > 0 ? c.getY()-2*size : 0;
             int limitX = c.getX() + 2*size < (w) ? c.getX() + 2*size : w;
             int limitY = c.getY() + 2*size < (h) ? c.getY() + 2*size : h;
-            printf("g\n");
+            //printf("g\n");
             for(int x = startX;x<limitX;x++) 
             {
                 for(int y = startY;y<limitY;y++)
@@ -302,20 +302,20 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
                     }
                 }
             }
-            printf("h\n");
+            //printf("h\n");
             xmedia =  (xmedia == 0 || count == 0) ? c.getX() : xmedia/count;
             ymedia =  (ymedia == 0 || count == 0) ? c.getY() : ymedia/count;
 
             double thisError = ((double)c.getX() - xmedia) * ((double)c.getX() - xmedia) + ((double)c.getY() -ymedia) *((double)c.getY() - ymedia);
             thisError = sqrt(thisError);
             //printf("thisError %g\n",thisError );
-            printf("k\n");
+            //printf("k\n");
             if(isnan(thisError))
             {
                 printf("%g %g %g %g \n", c.getX(),c.getY(), xmedia,ymedia);
                 continue;
             }
-            printf("l\n");
+            //printf("l\n");
             if (thisError > 0)
             {
                 //printf("(%g,%g) vs",c.getX(), c.getY() );
@@ -329,7 +329,7 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
                 total_center_shift += thisError;
                 clusters[i] = c; //important
             }
-            printf("m\n");
+            //printf("m\n");
             
 
 
@@ -340,14 +340,14 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
             printf("LOW ERROR ALREADY\n");
             break;
         }
-        printf("n\n");
+        //printf("n\n");
     }
     printf("Post Proccessing\n");
     int overwrittenCount=0;
    
     int lastCluster = 0;
     int orphanCount =0;
-    printf("o\n");
+    //printf("o\n");
     for(int i=0;i<(w*h);i++)
     {
         if(labels[i]==-1)
@@ -362,13 +362,13 @@ void performSuperPixelsAlgorithm( Image& Lab, Cluster* clusters, int *labels, in
         //printf("%d ", labels[i]);
         overwrittenCount++;
     }
-    printf("p\n");
+    //printf("p\n");
     if(orphanCount > 0)
     {
         printf("error %d labels in -1\n",orphanCount );
         //exit(01);
     }
-    printf("q\n");
+    //printf("q\n");
     printf("overwrittenCount %d\n", overwrittenCount);
     printf("%d/%d \n",overwrittenCount, (w*h));
     assert(orphanCount == 0);
@@ -599,15 +599,15 @@ int main( int argc, char** argv )
 {
 
     Image l = Image();
-    if (l.readBMP( "AB_ufv_0675.bmp" ))
+    if (l.readBMP( "estrela.bmp" ))
     {
         printf( "Leitura executada com sucesso\n" );
     }
     
     //M should be in [1,40]
-    SuperPixels( l, 2048, 40 );
+    SuperPixels( l, 20, 20 );
     
-    if (l.writeBMP( "AB_ufv_06752.bmp" ))
+    if (l.writeBMP( "estrela2.bmp" ))
     {
         printf( "Escrita executada com sucesso\n" );
     }
